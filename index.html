@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>方向指南針大冒險 - 小四數學互動學習工具</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #fcf9ff 0%, #f5eeff 100%);
+            color: #382a4d;
+            user-select: none;
+        }
+
+        .btn-bounce {
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        .btn-bounce:active {
+            transform: scale(0.95);
+        }
+
+        /* Glowing animation for hand helper */
+        @keyframes soft-glow {
+            0%, 100% { box-shadow: 0 0 12px rgba(14, 165, 233, 0.8); }
+            50% { box-shadow: 0 0 24px rgba(2, 132, 199, 1); }
+        }
+        .glow-hand {
+            animation: soft-glow 1.5s infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <!-- Header Section -->
+    <header class="bg-white/80 backdrop-blur-md border-b border-purple-100 p-4 shadow-sm sticky top-0 z-30">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-purple-50 shadow-sm flex items-center justify-center text-2xl border border-purple-100">🧭</div>
+                <div>
+                    <h1 class="text-2xl font-black tracking-wide text-purple-950">方向指南針大冒險</h1>
+                    <p class="text-xs text-purple-700 font-bold">香港小四數學：八個方向與直角轉向互動學習工具</p>
+                </div>
+            </div>
+
+            <!-- Mode Switcher Tabs -->
+            <div class="flex bg-purple-50/80 p-1.5 rounded-2xl border border-purple-100 text-sm font-bold">
+                <button id="tab-explore" onclick="switchMode('explore')" class="px-5 py-2 rounded-xl transition-all bg-purple-200 text-purple-950 shadow-sm font-extrabold">
+                    🎓 自由探索模式
+                </button>
+                <button id="tab-quiz" onclick="switchMode('quiz')" class="px-5 py-2 rounded-xl transition-all text-purple-700 hover:bg-purple-100/50 font-bold">
+                    🏆 闖關大挑戰
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid Layout -->
+    <main class="max-w-6xl mx-auto w-full p-4 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- Left Section: Interactive Compass Canvas & Helper Controls (7 cols) -->
+        <section class="lg:col-span-7 bg-white/90 rounded-3xl p-5 shadow-sm border border-purple-100 flex flex-col items-center relative">
+            
+            <!-- Helper Toggles Bar -->
+            <div class="w-full flex flex-wrap gap-2 justify-center mb-3">
+                <button id="btn-toggle-hand" onclick="toggleHandTooltip()" class="px-4 py-2 text-xs md:text-sm font-bold rounded-2xl border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100 flex items-center gap-2 transition btn-bounce shadow-sm">
+                    <span>✋</span> <span id="label-hand">伸出左手 (左轉提示) : 關</span>
+                </button>
+                <button id="btn-toggle-clock" onclick="toggleClockTooltip()" class="px-4 py-2 text-xs md:text-sm font-bold rounded-2xl border border-pink-200 bg-pink-50 text-pink-800 hover:bg-pink-100 flex items-center gap-2 transition btn-bounce shadow-sm">
+                    <span>🕒</span> <span id="label-clock">左逆右順時針 : 關</span>
+                </button>
+                <button onclick="resetCompass()" class="px-4 py-2 text-xs md:text-sm font-bold rounded-2xl border border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100 flex items-center gap-2 transition btn-bounce shadow-sm">
+                    <span>🔄</span> 歸位 (正北)
+                </button>
+            </div>
+
+            <!-- Compass Display Canvas -->
+            <div class="relative w-full aspect-square max-w-[460px] flex justify-center items-center">
+                <canvas id="compassCanvas" width="500" height="500" class="w-full h-full cursor-pointer touch-none"></canvas>
+            </div>
+
+            <!-- Step-by-step Trajectory Path -->
+            <div class="w-full mt-3 bg-purple-50/60 border border-purple-100 rounded-2xl p-3">
+                <p class="text-[11px] text-purple-700 font-black uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <span>🐾</span> 轉向步驟拆解軌跡：
+                </p>
+                <div id="trajectory-container" class="flex flex-wrap items-center gap-1.5 text-xs font-bold">
+                    <span class="px-3 py-1 bg-white rounded-xl border border-purple-200 text-purple-900 shadow-sm">起點：正北</span>
+                </div>
+            </div>
+
+            <!-- Current Facing Status Banner -->
+            <div id="status-banner" class="mt-3 w-full text-center bg-gradient-to-r from-purple-50 via-pink-50 to-sky-50 border border-purple-100 rounded-2xl p-3 shadow-sm">
+                <p class="text-xs text-purple-600 font-bold">目前角色面向</p>
+                <p id="status-text" class="text-xl md:text-2xl font-black text-purple-950 mt-0.5">
+                    面向：<span id="current-dir-text" class="text-3xl text-purple-900 font-black">北</span> 方
+                </p>
+            </div>
+        </section>
+
+        <!-- Right Section: Interactive Controls (Explore / Quiz Mode) (5 cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-4">
+
+            <!-- MODE 1: FREE EXPLORATION PANEL -->
+            <div id="panel-explore" class="bg-white/90 rounded-3xl p-5 shadow-sm border border-purple-100 flex flex-col gap-4">
+                
+                <!-- Step 1: Select Starting Direction -->
+                <div>
+                    <label class="text-xs font-black text-purple-900 block mb-2">1. 選擇起點方向：</label>
+                    <div class="grid grid-cols-4 gap-2">
+                        <button onclick="setStartDirByName('北')" class="dir-btn p-2 text-xs font-bold rounded-xl border border-purple-100 bg-purple-50/60 hover:bg-purple-100 text-purple-900 transition">北</button>
+                        <button onclick="setStartDirByName('東北')" class="dir-btn p-2 text-xs font-bold rounded-xl border border-purple-100 bg-purple-50/60 hover:bg-purple-100 text-purple-900 transition">東北</button>
+                        <button onclick="setStartDirByName('東')" class="dir-btn p-2 text-xs font-bold rounded-xl border border-purple-100 bg-purple-50/60 hover:bg-purple-100 text-purple-900 transition">東</button>
+                        <button onclick="setStartDirByName('東南')" class="dir-btn p-2 text-xs font-bold rounded-xl border border-purple-100 bg-purple-50/60 hover:bg-purple-100 text-purple-900 transition">東南</button>
+                        <button onclick="setStartDirByName('南')" class="dir-btn p-2 text-xs font-bold rounded-xl border border-purple-100 bg-purple-50/60 hover:bg-purple-100 text-purple-900 transition">南</button>
+                        <button onclick="setStartDirByName('西南')" class="dir-btn p-2 text-xs font-bold rounded-xl border border-purple-100 bg-purple-50/60 hover:bg-purple-100 text-purple-900 transition">西南</button>
+                        <button onclick="setStartDirByName('西')" class="dir-btn p-2 text-xs font-bold rounded-xl border border-purple-100 bg-purple-50/60 hover:bg-purple-100 text-purple-900 transition">西</button>
+                        <button onclick="setStartDirByName('西北')" class="dir-btn p-2 text-xs font-bold rounded-xl border border-purple-100 bg-purple-50/60 hover:bg-purple-100 text-purple-900 transition">西北</button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Turn Left Action Group (Pastel Light Blue Theme) -->
+                <div class="bg-sky-50/90 p-3.5 rounded-2xl border border-sky-100">
+                    <label class="text-xs font-black text-sky-900 block mb-2 flex items-center justify-between">
+                        <span>👈 向左轉（逆時針方向）</span>
+                        <span class="text-[10px] bg-sky-200/90 text-sky-950 px-2.5 py-0.5 rounded-full font-black">左手邊</span>
+                    </label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="performTurn('left', 1)" class="btn-bounce bg-sky-200 hover:bg-sky-300 text-sky-950 font-black py-2.5 px-1 rounded-xl text-xs shadow-sm border border-sky-300/60">
+                            左轉 1 個直角 <span class="text-[10px] opacity-80">(90°)</span>
+                        </button>
+                        <button onclick="performTurn('left', 2)" class="btn-bounce bg-sky-300 hover:bg-sky-400 text-sky-950 font-black py-2.5 px-1 rounded-xl text-xs shadow-sm border border-sky-400/60">
+                            左轉 2 個直角 <span class="text-[10px] opacity-80">(180°)</span>
+                        </button>
+                        <button onclick="performTurn('left', 3)" class="btn-bounce bg-sky-400 hover:bg-sky-500 text-white font-black py-2.5 px-1 rounded-xl text-xs shadow-sm border border-sky-500/60">
+                            左轉 3 個直角 <span class="text-[10px] opacity-90">(270°)</span>
+                        </button>
+                        <button onclick="performTurn('left', 4)" class="btn-bounce bg-sky-500 hover:bg-sky-600 text-white font-black py-2.5 px-1 rounded-xl text-xs shadow-sm border border-sky-600/60">
+                            左轉 4 個直角 <span class="text-[10px] opacity-90">(360°)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Turn Right Action Group (Pastel Light Pink Theme) -->
+                <div class="bg-pink-50/90 p-3.5 rounded-2xl border border-pink-100">
+                    <label class="text-xs font-black text-pink-900 block mb-2 flex items-center justify-between">
+                        <span>向右轉（順時針方向）👉</span>
+                        <span class="text-[10px] bg-pink-200/90 text-pink-950 px-2.5 py-0.5 rounded-full font-black">右手邊</span>
+                    </label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="performTurn('right', 1)" class="btn-bounce bg-pink-200 hover:bg-pink-300 text-pink-950 font-black py-2.5 px-1 rounded-xl text-xs shadow-sm border border-pink-300/60">
+                            右轉 1 個直角 <span class="text-[10px] opacity-80">(90°)</span>
+                        </button>
+                        <button onclick="performTurn('right', 2)" class="btn-bounce bg-pink-300 hover:bg-pink-400 text-pink-950 font-black py-2.5 px-1 rounded-xl text-xs shadow-sm border border-pink-400/60">
+                            右轉 2 個直角 <span class="text-[10px] opacity-80">(180°)</span>
+                        </button>
+                        <button onclick="performTurn('right', 3)" class="btn-bounce bg-pink-400 hover:bg-pink-500 text-white font-black py-2.5 px-1 rounded-xl text-xs shadow-sm border border-pink-500/60">
+                            右轉 3 個直角 <span class="text-[10px] opacity-90">(270°)</span>
+                        </button>
+                        <button onclick="performTurn('right', 4)" class="btn-bounce bg-pink-500 hover:bg-pink-600 text-white font-black py-2.5 px-1 rounded-xl text-xs shadow-sm border border-pink-600/60">
+                            右轉 4 個直角 <span class="text-[10px] opacity-90">(360°)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Teaching Concept Hint Card -->
+                <div class="bg-purple-50/80 p-3.5 rounded-2xl border border-purple-100 text-xs text-purple-950 space-y-1 shadow-sm">
+                    <p class="font-black text-purple-950 flex items-center gap-1">💡 小四方向概念口訣：</p>
+                    <p>• <span class="font-black text-sky-800">向左轉 = 伸出左手 = 逆時針方向</span></p>
+                    <p>• <span class="font-black text-pink-800">向右轉 = 伸出右手 = 順時針方向</span></p>
+                    <p>• 1 個直角 = 90 度（在八方位圖走 2 個格子）</p>
+                </div>
+            </div>
+
+            <!-- MODE 2: QUIZ CHALLENGE PANEL -->
+            <div id="panel-quiz" class="hidden bg-white/90 rounded-3xl p-5 shadow-sm border border-purple-100 flex flex-col gap-4">
+                
+                <!-- Scoreboard Header -->
+                <div class="flex justify-between items-center bg-purple-50/80 p-3 rounded-2xl border border-purple-100">
+                    <div class="flex items-center gap-2">
+                        <span class="text-2xl">🌟</span>
+                        <div>
+                            <p class="text-[10px] text-purple-600 font-bold uppercase">目前得分</p>
+                            <p id="quiz-score" class="text-xl font-black text-purple-950">0 分</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-2xl">🔥</span>
+                        <div>
+                            <p class="text-[10px] text-purple-600 font-bold uppercase">連勝紀錄</p>
+                            <p id="quiz-streak" class="text-xl font-black text-pink-600">0 次</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-purple-600 font-bold uppercase">關卡進度</p>
+                        <p id="quiz-progress" class="text-xs font-bold text-purple-900">第 1 / 5 題</p>
+                    </div>
+                </div>
+
+                <!-- Question Box -->
+                <div class="bg-gradient-to-br from-purple-50 via-pink-50 to-sky-50 border border-purple-100 p-4 rounded-2xl shadow-sm">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="bg-purple-200/80 text-purple-950 font-black text-xs px-2.5 py-1 rounded-lg">課本擬真題</span>
+                        <button onclick="playQuestionDemo()" class="text-xs bg-white text-purple-900 border border-purple-200 font-bold px-2.5 py-1 rounded-xl hover:bg-purple-50 flex items-center gap-1 shadow-sm btn-bounce">
+                            <span>🎬</span> 在羅盤演示題目
+                        </button>
+                    </div>
+                    <p id="question-text" class="text-base font-bold text-purple-950 leading-relaxed">
+                        載入題目中...
+                    </p>
+                </div>
+
+                <!-- Options -->
+                <div id="quiz-options" class="grid grid-cols-2 gap-2.5">
+                    <!-- Dynamic Options -->
+                </div>
+
+                <!-- Feedback Card -->
+                <div id="quiz-feedback" class="hidden p-3 rounded-2xl text-xs md:text-sm font-bold transition-all">
+                    <!-- Dynamic Feedback Message -->
+                </div>
+
+                <!-- Next Question Button -->
+                <button id="btn-next-question" onclick="nextQuestion()" class="hidden w-full py-3 bg-purple-300 hover:bg-purple-400 text-purple-950 font-black text-base rounded-2xl shadow-sm transition btn-bounce">
+                    下一題 👉
+                </button>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white/80 border-t border-purple-100 text-center py-3 text-xs text-purple-700 font-medium">
+        <p>香港小學四年級數學科專用教學互動網頁 • 適用於 iPad、智慧電子白板與個人電腦</p>
+    </footer>
+
+    <!-- LOGIC & AUDIO ENGINE -->
+    <script>
+        /**
+         * 8-Point Compass Direction Definitions
+         * Angles in degrees clockwise from North (0°).
+         */
+        const DIRECTIONS = [
+            { name: "北", angle: 0 },
+            { name: "東北", angle: 45 },
+            { name: "東", angle: 90 },
+            { name: "東南", angle: 135 },
+            { name: "南", angle: 180 },
+            { name: "西南", angle: 225 },
+            { name: "西", angle: 270 },
+            { name: "西北", angle: 315 }
+        ];
+
+        // Global State Variables
+        let currentAngle = 0;           // Current character angle
+        let targetAngle = 0;            // Target angle for rotation
+        let animationProgress = 1;      // Progress (0 to 1)
+        let arcStartAngle = 0;          // Rotation arc start
+        let arcEndAngle = 0;            // Rotation arc end
+        let arcIsLeft = true;           // Rotation direction
+        let showHandTooltip = false;    // Raise left hand switch
+        let showClockTooltip = false;   // Clockwise switch
+        let isAnimating = false;
+        let activeMode = 'explore';     // 'explore' or 'quiz'
+        let trajectorySteps = [];       // Track step-by-step direction history
+
+        // Web Audio Synthesizer
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+            if (type === 'click') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(500, now);
+                osc.frequency.exponentialRampToValueAtTime(750, now + 0.06);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.06);
+                osc.start(now);
+                osc.stop(now + 0.06);
+            } else if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.1);
+                osc.frequency.setValueAtTime(783.99, now + 0.2);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+                osc.start(now);
+                osc.stop(now + 0.35);
+            } else if (type === 'wrong') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(260, now);
+                osc.frequency.setValueAtTime(200, now + 0.12);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } else if (type === 'spin') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(320, now);
+                osc.frequency.linearRampToValueAtTime(540, now + 0.25);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+        }
+
+        // Canvas Setup
+        const canvas = document.getElementById('compassCanvas');
+        const ctx = canvas.getContext('2d');
+        const CENTER = { x: 250, y: 250 };
+        const RADIUS = 175;
+
+        // Draw Rounded Rectangle Helper for Canvas
+        function roundRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+
+        // Render Canvas Animation Loop
+        function drawCompass() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Interpolate Angle for Smooth Motion
+            if (animationProgress < 1) {
+                animationProgress += 0.045;
+                if (animationProgress >= 1) {
+                    animationProgress = 1;
+                    currentAngle = targetAngle;
+                    isAnimating = false;
+                } else {
+                    currentAngle = arcStartAngle + (arcEndAngle - arcStartAngle) * easeOutCubic(animationProgress);
+                }
+            }
+
+            const currentNormAngle = (currentAngle % 360 + 360) % 360;
+
+            // 1. Outer Compass Ring
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(CENTER.x, CENTER.y, RADIUS + 12, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = 'rgba(180, 150, 220, 0.12)';
+            ctx.shadowBlur = 12;
+            ctx.fill();
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#e8dafb';
+            ctx.stroke();
+            ctx.restore();
+
+            // 2. Draw 8 Direction Lines & Labels
+            DIRECTIONS.forEach((dir, index) => {
+                const rad = (dir.angle - 90) * Math.PI / 180;
+                const x1 = CENTER.x + Math.cos(rad) * (RADIUS - 20);
+                const y1 = CENTER.y + Math.sin(rad) * (RADIUS - 20);
+
+                // Radial Line
+                ctx.beginPath();
+                ctx.moveTo(CENTER.x, CENTER.y);
+                ctx.lineTo(x1, y1);
+                ctx.lineWidth = (index % 2 === 0) ? 2 : 1;
+                ctx.strokeStyle = (index % 2 === 0) ? '#d8c4f8' : '#f0e6ff';
+                ctx.stroke();
+
+                // Direction Badge
+                const labelX = CENTER.x + Math.cos(rad) * (RADIUS + 28);
+                const labelY = CENTER.y + Math.sin(rad) * (RADIUS + 28);
+
+                const isFacing = Math.abs((dir.angle - currentNormAngle + 360) % 360) < 22.5;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(labelX, labelY, isFacing ? 20 : 16, 0, Math.PI * 2);
+                ctx.fillStyle = isFacing ? '#6b21a8' : '#faf5ff';
+                ctx.strokeStyle = isFacing ? '#581c87' : '#e8dafb';
+                ctx.lineWidth = isFacing ? 2.5 : 1.5;
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = isFacing ? '#ffffff' : '#4a3b63';
+                ctx.font = isFacing ? 'bold 15px Noto Sans TC' : 'bold 12px Noto Sans TC';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(dir.name, labelX, labelY + 1);
+                ctx.restore();
+            });
+
+            // 3. Draw Arc Arrow showing rotation direction
+            if (animationProgress < 1 || (arcStartAngle !== arcEndAngle)) {
+                ctx.save();
+                const startRad = (arcStartAngle - 90) * Math.PI / 180;
+                const currRad = (currentAngle - 90) * Math.PI / 180;
+
+                ctx.beginPath();
+                ctx.arc(CENTER.x, CENTER.y, RADIUS - 35, startRad, currRad, arcIsLeft);
+                ctx.lineWidth = 8;
+                ctx.strokeStyle = arcIsLeft ? 'rgba(56, 189, 248, 0.7)' : 'rgba(244, 114, 182, 0.7)';
+                ctx.stroke();
+
+                // Arrow head dot
+                const headX = CENTER.x + Math.cos(currRad) * (RADIUS - 35);
+                const headY = CENTER.y + Math.sin(currRad) * (RADIUS - 35);
+                ctx.beginPath();
+                ctx.arc(headX, headY, 7, 0, Math.PI * 2);
+                ctx.fillStyle = arcIsLeft ? '#0284c7' : '#db2777';
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // 4. Clockwise / Counter-Clockwise Helper Overlay
+            if (showClockTooltip) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(CENTER.x, CENTER.y, RADIUS - 60, 0, Math.PI * 2);
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([5, 5]);
+                ctx.strokeStyle = '#a855f7';
+                ctx.stroke();
+
+                drawRingArrow(CENTER.x, CENTER.y, RADIUS - 60, Math.PI, Math.PI * 1.5, true, '#0284c7', '左轉 = 逆時針');
+                drawRingArrow(CENTER.x, CENTER.y, RADIUS - 60, 0, Math.PI * 0.5, false, '#db2777', '右轉 = 順時針');
+                ctx.restore();
+            }
+
+            // 5. Draw Avatar Character in Center
+            drawAvatar(currentNormAngle);
+
+            requestAnimationFrame(drawCompass);
+        }
+
+        // Helper Text along Clock Ring
+        function drawRingArrow(cx, cy, r, startAngle, endAngle, counterClockwise, color, text) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, startAngle, endAngle, counterClockwise);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = color;
+            ctx.stroke();
+
+            const midAngle = (startAngle + endAngle) / 2;
+            const tx = cx + Math.cos(midAngle) * (r - 16);
+            const ty = cy + Math.sin(midAngle) * (r - 16);
+            ctx.fillStyle = color;
+            ctx.font = 'bold 11px Noto Sans TC';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, tx, ty);
+            ctx.restore();
+        }
+
+        // Draw Pastel Avatar Character
+        function drawAvatar(facingAngle) {
+            ctx.save();
+            ctx.translate(CENTER.x, CENTER.y);
+            ctx.rotate((facingAngle) * Math.PI / 180);
+
+            // ==========================================
+            // DEEP PURPLE FACING NEEDLE & BEAM (修復 2)
+            // ==========================================
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -112);
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#6b21a8'; // Deep Purple Pointer
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+
+            // Facing Cone Light Beam
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, 112, -Math.PI / 2 - Math.PI / 8, -Math.PI / 2 + Math.PI / 8);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(107, 33, 168, 0.15)'; // Soft Deep Purple Cone
+            ctx.fill();
+
+            // Pointer Arrow Tip
+            ctx.beginPath();
+            ctx.moveTo(0, -120);
+            ctx.lineTo(-8, -106);
+            ctx.lineTo(8, -106);
+            ctx.closePath();
+            ctx.fillStyle = '#581c87'; // Dark Deep Purple Tip
+            ctx.fill();
+
+            // Character Face
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.arc(0, 0, 36, 0, Math.PI * 2);
+            ctx.fillStyle = '#fef08a'; // Soft Pastel Yellow Face
+            ctx.strokeStyle = '#eab308';
+            ctx.lineWidth = 3;
+            ctx.fill();
+            ctx.stroke();
+
+            // Hair Bun
+            ctx.beginPath();
+            ctx.arc(0, -36, 9, 0, Math.PI * 2);
+            ctx.fillStyle = '#6b21a8';
+            ctx.fill();
+
+            // Eyes
+            ctx.fillStyle = '#331832';
+            ctx.beginPath();
+            ctx.arc(-11, -16, 4.5, 0, Math.PI * 2);
+            ctx.arc(11, -16, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Smile
+            ctx.beginPath();
+            ctx.arc(0, -7, 9, 0.2, Math.PI - 0.2);
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = '#713f12';
+            ctx.stroke();
+
+            // ==========================================
+            // LARGE ENLARGED LEFT HAND BADGE (修復 1)
+            // ==========================================
+            const handW = 66;  // Enlarged Pill Width
+            const handH = 34;  // Enlarged Pill Height
+            const lx = -88;    // Center X
+            const ly = 0;      // Center Y
+
+            // Left Arm Line
+            ctx.beginPath();
+            ctx.moveTo(-32, 0);
+            ctx.lineTo(-58, 0);
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = '#0284c7';
+            ctx.stroke();
+
+            // Glowing Aura if Helper is ON
+            if (showHandTooltip) {
+                ctx.save();
+                roundRect(ctx, lx - handW / 2 - 6, ly - handH / 2 - 6, handW + 12, handH + 12, 22);
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.5)';
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Solid Left Hand Capsule Badge
+            ctx.save();
+            roundRect(ctx, lx - handW / 2, ly - handH / 2, handW, handH, 17);
+            ctx.fillStyle = '#0284c7'; // Sky Blue
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2.5;
+            ctx.fill();
+            ctx.stroke();
+
+            // 16px Bold White Text
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 16px Noto Sans TC, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('左手', lx, ly + 1);
+            ctx.restore();
+
+            // ==========================================
+            // LARGE ENLARGED RIGHT HAND BADGE (修復 1)
+            // ==========================================
+            const rx = 88;
+            const ry = 0;
+
+            // Right Arm Line
+            ctx.beginPath();
+            ctx.moveTo(32, 0);
+            ctx.lineTo(58, 0);
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = '#db2777';
+            ctx.stroke();
+
+            // Solid Right Hand Capsule Badge
+            ctx.save();
+            roundRect(ctx, rx - handW / 2, ry - handH / 2, handW, handH, 17);
+            ctx.fillStyle = '#db2777'; // Pink
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2.5;
+            ctx.fill();
+            ctx.stroke();
+
+            // 16px Bold White Text
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 16px Noto Sans TC, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('右手', rx, ry + 1);
+            ctx.restore();
+
+            ctx.restore();
+        }
+
+        function easeOutCubic(x) {
+            return 1 - Math.pow(1 - x, 3);
+        }
+
+        /**
+         * Get exact direction name by angle
+         */
+        function getDirectionName(angle) {
+            const norm = (angle % 360 + 360) % 360;
+            const index = Math.round(norm / 45) % 8;
+            return DIRECTIONS[index].name;
+        }
+
+        function getDirectionIndexByName(name) {
+            return DIRECTIONS.findIndex(d => d.name === name);
+        }
+
+        // Render Step-by-Step Trajectory Path
+        function updateTrajectoryUI() {
+            const container = document.getElementById('trajectory-container');
+            container.innerHTML = '';
+
+            trajectorySteps.forEach((step, idx) => {
+                const pill = document.createElement('span');
+                if (idx === 0) {
+                    pill.className = "px-3 py-1 bg-white rounded-xl border border-purple-200 text-purple-900 shadow-sm font-extrabold";
+                    pill.innerText = `起點：${step}`;
+                } else {
+                    const arrow = document.createElement('span');
+                    arrow.className = "text-purple-400 font-black";
+                    arrow.innerText = "➔";
+                    container.appendChild(arrow);
+
+                    pill.className = "px-3 py-1 bg-purple-100/90 rounded-xl border border-purple-200 text-purple-950 font-black shadow-sm";
+                    pill.innerText = step;
+                }
+                container.appendChild(pill);
+            });
+        }
+
+        function updateStatusText() {
+            const currentDirName = getDirectionName(currentAngle);
+            document.getElementById('current-dir-text').innerText = currentDirName;
+
+            document.querySelectorAll('.dir-btn').forEach(btn => {
+                if (btn.innerText === currentDirName) {
+                    btn.classList.add('bg-purple-300', 'text-purple-950', 'font-black', 'border-purple-400');
+                    btn.classList.remove('bg-purple-50/60', 'text-purple-900');
+                } else {
+                    btn.classList.remove('bg-purple-300', 'text-purple-950', 'font-black', 'border-purple-400');
+                    btn.classList.add('bg-purple-50/60', 'text-purple-900');
+                }
+            });
+        }
+
+        function performTurn(direction, rightAngles) {
+            if (isAnimating) return;
+            playSound('spin');
+
+            const degrees = rightAngles * 90;
+            arcStartAngle = currentAngle;
+            arcIsLeft = (direction === 'left');
+
+            if (direction === 'left') {
+                targetAngle = currentAngle - degrees;
+            } else {
+                targetAngle = currentAngle + degrees;
+            }
+
+            arcEndAngle = targetAngle;
+            animationProgress = 0;
+            isAnimating = true;
+
+            // Generate intermediate trajectory steps
+            const startName = getDirectionName(currentAngle);
+            trajectorySteps = [startName];
+            
+            for (let i = 1; i <= rightAngles; i++) {
+                const stepAngle = direction === 'left' ? (currentAngle - i * 90) : (currentAngle + i * 90);
+                const stepDirName = getDirectionName(stepAngle);
+                const turnLabel = direction === 'left' ? `左轉${i}直角: ${stepDirName}` : `右轉${i}直角: ${stepDirName}`;
+                trajectorySteps.push(turnLabel);
+            }
+            updateTrajectoryUI();
+
+            setTimeout(() => {
+                updateStatusText();
+            }, 600);
+        }
+
+        function setStartDirByName(name) {
+            const idx = getDirectionIndexByName(name);
+            if (idx !== -1) {
+                setStartDir(idx);
+            }
+        }
+
+        function setStartDir(dirIndex) {
+            if (isAnimating) return;
+            playSound('click');
+            const target = DIRECTIONS[dirIndex].angle;
+            arcStartAngle = target;
+            arcEndAngle = target;
+            currentAngle = target;
+            targetAngle = target;
+            animationProgress = 1;
+            isAnimating = false;
+
+            const startName = DIRECTIONS[dirIndex].name;
+            trajectorySteps = [startName];
+            updateTrajectoryUI();
+            updateStatusText();
+        }
+
+        function resetCompass() {
+            setStartDir(0);
+        }
+
+        function toggleHandTooltip() {
+            playSound('click');
+            showHandTooltip = !showHandTooltip;
+            const btn = document.getElementById('btn-toggle-hand');
+            const label = document.getElementById('label-hand');
+            if (showHandTooltip) {
+                btn.classList.add('glow-hand', 'bg-sky-200', 'text-sky-950');
+                label.innerText = '伸出左手 (左轉提示) : 開';
+            } else {
+                btn.classList.remove('glow-hand', 'bg-sky-200', 'text-sky-950');
+                label.innerText = '伸出左手 (左轉提示) : 關';
+            }
+        }
+
+        function toggleClockTooltip() {
+            playSound('click');
+            showClockTooltip = !showClockTooltip;
+            const btn = document.getElementById('btn-toggle-clock');
+            const label = document.getElementById('label-clock');
+            if (showClockTooltip) {
+                btn.classList.add('bg-pink-200', 'text-pink-950');
+                label.innerText = '左逆右順時針 : 開';
+            } else {
+                btn.classList.remove('bg-pink-200', 'text-pink-950');
+                label.innerText = '左逆右順時針 : 關';
+            }
+        }
+
+        function switchMode(mode) {
+            playSound('click');
+            activeMode = mode;
+            const tabExplore = document.getElementById('tab-explore');
+            const tabQuiz = document.getElementById('tab-quiz');
+            const panelExplore = document.getElementById('panel-explore');
+            const panelQuiz = document.getElementById('panel-quiz');
+
+            if (mode === 'explore') {
+                tabExplore.className = "px-5 py-2 rounded-xl transition-all bg-purple-200 text-purple-950 shadow-sm font-extrabold";
+                tabQuiz.className = "px-5 py-2 rounded-xl transition-all text-purple-700 hover:bg-purple-100/50 font-bold";
+                panelExplore.classList.remove('hidden');
+                panelQuiz.classList.add('hidden');
+            } else {
+                tabQuiz.className = "px-5 py-2 rounded-xl transition-all bg-purple-200 text-purple-950 shadow-sm font-extrabold";
+                tabExplore.className = "px-5 py-2 rounded-xl transition-all text-purple-700 hover:bg-purple-100/50 font-bold";
+                panelQuiz.classList.remove('hidden');
+                panelExplore.classList.add('hidden');
+                initQuiz();
+            }
+        }
+
+        /* ==========================================================================
+           QUIZ ENGINE (Primary 4 Math Curriculum Generator)
+           ========================================================================== */
+        
+        let quizScore = 0;
+        let quizStreak = 0;
+        let currentQuestionIndex = 0;
+        let quizQuestions = [];
+        let currentQ = null;
+
+        function generateQuestions() {
+            return [
+                {
+                    type: 'fill_angles',
+                    student: "諾言",
+                    startDir: "東南",
+                    turnDir: "left",
+                    endDir: "西南",
+                    correctNum: 3,
+                    options: [1, 2, 3, 4],
+                    explain: "【拆解】諾言面向東南，向左轉（逆時針）：1個直角到東北 ➔ 2個直角到西北 ➔ 3個直角到達西南！答案是 3 個直角。"
+                },
+                {
+                    type: 'find_facing',
+                    student: "詠桐",
+                    startDir: "東北",
+                    turnDir: "left",
+                    numAngles: 1,
+                    correctAnswer: "西北",
+                    options: ["西北", "東南", "西南", "正北"],
+                    explain: "【拆解】詠桐伸出左手向左轉 1 個直角（逆時針轉 90°），從東北轉到西北方。"
+                },
+                {
+                    type: 'find_facing',
+                    student: "卓楠",
+                    startDir: "西南",
+                    turnDir: "right",
+                    numAngles: 2,
+                    correctAnswer: "東北",
+                    options: ["東北", "東南", "西北", "正南"],
+                    explain: "【拆解】卓楠向右轉 2 個直角（順時針轉 180°），轉半個圈後面向相反方向，即東北方。"
+                },
+                {
+                    type: 'find_opposite',
+                    student: "仲謙",
+                    startDir: "西南",
+                    turnDir: "right",
+                    numAngles: 1,
+                    correctAnswer: "東南",
+                    options: ["東南", "西北", "東北", "西南"],
+                    explain: "【拆解】仲謙面向西南，向右轉 1 個直角後面向西北。背向就是背後相反方向，西北的正對面是東南！"
+                },
+                {
+                    type: 'find_facing',
+                    student: "希雅",
+                    startDir: "東",
+                    turnDir: "left",
+                    numAngles: 2,
+                    correctAnswer: "西",
+                    options: ["西", "東", "北", "南"],
+                    explain: "【拆解】向左轉 2 個直角等於轉動 180 度，正東方的正對面就是正西方。"
+                }
+            ];
+        }
+
+        function initQuiz() {
+            quizScore = 0;
+            quizStreak = 0;
+            currentQuestionIndex = 0;
+            quizQuestions = generateQuestions();
+            document.getElementById('quiz-score').innerText = `${quizScore} 分`;
+            document.getElementById('quiz-streak').innerText = `${quizStreak} 次`;
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            if (currentQuestionIndex >= quizQuestions.length) {
+                showQuizCompletion();
+                return;
+            }
+
+            currentQ = quizQuestions[currentQuestionIndex];
+            document.getElementById('quiz-progress').innerText = `第 ${currentQuestionIndex + 1} / ${quizQuestions.length} 題`;
+            
+            const feedbackEl = document.getElementById('quiz-feedback');
+            feedbackEl.classList.add('hidden');
+            document.getElementById('btn-next-question').classList.add('hidden');
+
+            const qTextEl = document.getElementById('question-text');
+            const optionsEl = document.getElementById('quiz-options');
+            optionsEl.innerHTML = '';
+
+            // Set precise start direction for this question
+            setStartDirByName(currentQ.startDir);
+
+            if (currentQ.type === 'fill_angles') {
+                qTextEl.innerHTML = `${currentQ.student}面向 <span class="text-purple-950 font-black underline">${currentQ.startDir}</span>，他向左轉 ( <span class="text-pink-600 font-black"> ? </span> ) 個直角後，會面向 <span class="text-sky-700 font-black underline">${currentQ.endDir}</span> 方。`;
+                
+                currentQ.options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = "btn-bounce bg-purple-50 hover:bg-purple-200 text-purple-950 border border-purple-200 font-black text-sm md:text-base py-3 rounded-2xl shadow-sm transition";
+                    btn.innerText = `${opt} 個直角`;
+                    btn.onclick = () => checkAnswer(opt);
+                    optionsEl.appendChild(btn);
+                });
+            } else if (currentQ.type === 'find_facing') {
+                const turnStr = currentQ.turnDir === 'left' ? '向左轉' : '向右轉';
+                qTextEl.innerHTML = `${currentQ.student}面向 <span class="text-purple-950 font-black underline">${currentQ.startDir}</span>，如果他${turnStr} <span class="text-pink-600 font-black">${currentQ.numAngles} 個直角</span>，會面向哪個方向？`;
+
+                currentQ.options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = "btn-bounce bg-purple-50 hover:bg-purple-200 text-purple-950 border border-purple-200 font-black text-sm md:text-base py-3 rounded-2xl shadow-sm transition";
+                    btn.innerText = opt;
+                    btn.onclick = () => checkAnswer(opt);
+                    optionsEl.appendChild(btn);
+                });
+            } else if (currentQ.type === 'find_opposite') {
+                const turnStr = currentQ.turnDir === 'left' ? '向左轉' : '向右轉';
+                qTextEl.innerHTML = `${currentQ.student}面向 <span class="text-purple-950 font-black underline">${currentQ.startDir}</span>，${turnStr} <span class="text-pink-600 font-black">${currentQ.numAngles} 個直角</span>後，【<span class="text-pink-700 font-black">背向</span>】哪個方向？`;
+
+                currentQ.options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = "btn-bounce bg-purple-50 hover:bg-purple-200 text-purple-950 border border-purple-200 font-black text-sm md:text-base py-3 rounded-2xl shadow-sm transition";
+                    btn.innerText = opt;
+                    btn.onclick = () => checkAnswer(opt);
+                    optionsEl.appendChild(btn);
+                });
+            }
+        }
+
+        function playQuestionDemo() {
+            if (!currentQ) return;
+            // 1. Reset strictly to startDir of question
+            setStartDirByName(currentQ.startDir);
+
+            // 2. Perform the exact turn
+            setTimeout(() => {
+                const num = currentQ.numAngles || currentQ.correctNum || 1;
+                const dir = currentQ.turnDir || 'left';
+                performTurn(dir, num);
+            }, 300);
+        }
+
+        function checkAnswer(userAns) {
+            const feedbackEl = document.getElementById('quiz-feedback');
+            feedbackEl.classList.remove('hidden');
+
+            let isCorrect = false;
+            if (currentQ.type === 'fill_angles') {
+                isCorrect = (userAns === currentQ.correctNum);
+            } else {
+                isCorrect = (userAns === currentQ.correctAnswer);
+            }
+
+            if (isCorrect) {
+                playSound('correct');
+                quizScore += 20;
+                quizStreak += 1;
+                document.getElementById('quiz-score').innerText = `${quizScore} 分`;
+                document.getElementById('quiz-streak').innerText = `${quizStreak} 次`;
+                
+                feedbackEl.className = "p-3 rounded-2xl text-xs md:text-sm font-bold bg-emerald-50 text-emerald-950 border border-emerald-200";
+                feedbackEl.innerHTML = `🎉 答對了！太棒了！<br>${currentQ.explain}`;
+
+                confetti({
+                    particleCount: 45,
+                    spread: 60,
+                    origin: { y: 0.7 }
+                });
+
+                playQuestionDemo();
+
+            } else {
+                playSound('wrong');
+                quizStreak = 0;
+                document.getElementById('quiz-streak').innerText = `${quizStreak} 次`;
+                
+                feedbackEl.className = "p-3 rounded-2xl text-xs md:text-sm font-bold bg-pink-50 text-pink-950 border border-pink-200";
+                feedbackEl.innerHTML = `❌ 再想想看！按上方的「🎬 在羅盤演示題目」看看移動軌跡吧。<br>${currentQ.explain}`;
+            }
+
+            document.getElementById('btn-next-question').classList.remove('hidden');
+        }
+
+        function nextQuestion() {
+            playSound('click');
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+
+        function showQuizCompletion() {
+            const qTextEl = document.getElementById('question-text');
+            const optionsEl = document.getElementById('quiz-options');
+            const feedbackEl = document.getElementById('quiz-feedback');
+
+            qTextEl.innerHTML = `🏆 恭喜完成所有方向關卡！`;
+            optionsEl.innerHTML = `
+                <div class="col-span-2 text-center p-4 bg-purple-50 rounded-2xl border border-purple-100">
+                    <p class="text-2xl font-black text-purple-950 mb-1">最終得分：${quizScore} 分</p>
+                    <p class="text-xs text-purple-700 mb-3">你已經掌握向左轉、向右轉與直角數的概念了！</p>
+                    <button onclick="initQuiz()" class="py-2.5 px-6 bg-purple-200 hover:bg-purple-300 text-purple-950 font-bold text-sm rounded-xl shadow-sm transition btn-bounce">
+                        🔄 重新挑戰
+                    </button>
+                </div>
+            `;
+            feedbackEl.classList.add('hidden');
+            document.getElementById('btn-next-question').classList.add('hidden');
+
+            confetti({
+                particleCount: 120,
+                spread: 90,
+                origin: { y: 0.5 }
+            });
+        }
+
+        window.onload = function() {
+            updateStatusText();
+            drawCompass();
+        };
+    </script>
+</body>
+</html>
